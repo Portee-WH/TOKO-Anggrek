@@ -1,0 +1,10 @@
+{
+  "name": "toko-dashboard-api",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-30",
+  "vars": {
+    "SHEET_ID": "1klCP1d22dTmp92cv_PlySf1wGqY7Jy5oJzue63Bp1FQ",
+    "GOOGLE_CLIENT_ID": "ISI_OAUTH_WEB_CLIENT_ID",
+    "ALLOWED_ORIGIN": "https://portee-wh.github.io"
+  }
+}
