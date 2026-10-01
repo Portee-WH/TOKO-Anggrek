@@ -44,14 +44,24 @@ export function calculate(raw, settings){
   }
   if(invalidDates||invalidNumbers)throw Error(`${invalidDates} tanggal dan ${invalidNumbers} angka penjualan tidak valid. Perbaiki sumber sebelum menghitung.`);
   if(earliest>t-windowDays*DAY)warnings.push(`Riwayat sumber belum mencakup ${windowDays} hari penuh; rata-rata dapat terlalu rendah.`);
-  const map=new Map();
+  // Setiap baris SKU di lokasi toko adalah stok fisik terpisah (termasuk versi laser).
+  const grouped=new Map();
   for(const r of stocks){
     if(String(r.Location).trim()!==storeId)continue;
     const sku=String(r['Item Code']).trim();if(!sku)continue;
-    if(map.has(sku))throw Error(`SKU stok duplikat untuk toko ini: ${sku}. Periksa sumber agar stok tidak dihitung ganda.`);
+    const values=['On Hand','Reserved','Available'].map(k=>num(r[k]));
+    if(!values.every(Number.isFinite))throw Error(`Angka stok tidak valid: ${sku}`);
+    const g=grouped.get(sku)??{'Item Code':sku,names:new Set(),'On Hand':0,Reserved:0,Available:0};
+    g.names.add(String(r['Item Name']).trim());
+    ['On Hand','Reserved','Available'].forEach((k,i)=>g[k]+=values[i]);
+    grouped.set(sku,g);
+  }
+  const map=new Map();
+  for(const r of grouped.values()){
+    const sku=r['Item Code'];
     const onHand=num(r['On Hand']),reserved=num(r.Reserved),available=num(r.Available);
     if(![onHand,reserved,available].every(Number.isFinite))throw Error(`Angka stok tidak valid: ${sku}`);
-    const name=String(r['Item Name']); const category=/sandal/i.test(name)?'Sandal':/sepatu|boots|loafer|oxford|derby/i.test(name)?'Sepatu':'Lainnya';
+    const name=[...r.names].filter(Boolean).join(' / '); const category=/sandal/i.test(name)?'Sandal':/sepatu|boots|loafer|oxford|derby/i.test(name)?'Sepatu':'Lainnya';
     const weight=category==='Sandal'?sandalWeight:shoeWeight;
     const m=metrics.get(sku)??{qty:0,last:-Infinity},rate=m.qty/windowDays;
     const target=Math.ceil(rate*(cycle+safetyDays));
