@@ -3,12 +3,12 @@ const jwks=createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/cert
 let accessToken='',tokenUntil=0;
 async function sheetsToken(env){
   if(accessToken&&Date.now()<tokenUntil)return accessToken;
-  const key=await importPKCS8(env.GOOGLE_PRIVATE_KEY.replace(/\\n/g,'\n'),'RS256');
-  const assertion=await new SignJWT({scope:'https://www.googleapis.com/auth/spreadsheets.readonly'})
+  let key; try{key=await importPKCS8(env.GOOGLE_PRIVATE_KEY.replace(/\\n/g,'\n'),'RS256');}catch{throw Error('READER_KEY');}
+  let assertion; try{assertion=await new SignJWT({scope:'https://www.googleapis.com/auth/spreadsheets.readonly'})
     .setProtectedHeader({alg:'RS256'}).setIssuer(env.GOOGLE_SERVICE_ACCOUNT_EMAIL)
-    .setAudience('https://oauth2.googleapis.com/token').setIssuedAt().setExpirationTime('1h').sign(key);
+    .setAudience('https://oauth2.googleapis.com/token').setIssuedAt().setExpirationTime('1h').sign(key);}catch{throw Error('READER_SIGN');}
   const response=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion})});
-  const data=await response.json();if(!response.ok||!data.access_token)throw Error('Tidak dapat mengakses akun pembaca sheet.');
+  const data=await response.json();if(!response.ok||!data.access_token)throw Error('READER_OAUTH');
   accessToken=data.access_token;tokenUntil=Date.now()+(Number(data.expires_in)-120)*1000;return accessToken;
 }
 export default {async fetch(request,env){
@@ -34,5 +34,5 @@ export default {async fetch(request,env){
     if(keep.some(h=>!head.includes(h)))return reply({error:'Kolom sales toko berubah; periksa header sumber.'},422);
     const indexes=keep.map(h=>head.indexOf(h));const sales=[keep,...sourceSales.slice(1).map(row=>indexes.map(i=>row[i]??''))];
     return reply({stock,sales,fetchedAt:new Date().toISOString()});
-  }catch{return reply({error:'Koneksi backend belum lengkap atau mengalami gangguan. Periksa konfigurasi akun pembaca.'},502);}
+  }catch(error){const messages={READER_KEY:'Format GOOGLE_PRIVATE_KEY tidak valid. Salin ulang nilai private_key dari JSON.',READER_SIGN:'Kunci pembaca tidak dapat digunakan untuk menandatangani permintaan.',READER_OAUTH:'Google menolak akun pembaca. Periksa pasangan client_email dan private_key serta status kunci di Google Cloud.'};return reply({error:messages[error.message]??'Gangguan saat menghubungi Google atau memproses data. Coba kembali.',code:messages[error.message]?error.message:'BACKEND_REQUEST'},502);}
 }};
