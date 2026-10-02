@@ -19,8 +19,8 @@ function render(){
   $('capacity-note').textContent=result.occupied>result.capacity?`Kelebihan ${fmt(result.occupied-result.capacity)} unit ruang. Restock ditahan; cek daftar take out dan lakukan pemindahan terlebih dahulu.`:`Restock tiba ${$('arrival').value}, mencakup ${result.cycle} hari. Kandidat take out belum dihitung sebagai ruang kosong.`;
   $('chart').replaceChildren();const max=Math.max(1,...result.trend.map(x=>x[1]));
   for(let i=+$('window').value;i>0;i--){const d=new Date(day(today())-i*DAY).toISOString().slice(0,10),q=new Map(result.trend).get(d)??0;const b=document.createElement('div');b.className='bar';b.style.height=`${q/max*100}%`;b.title=`${d}: ${q} pasang`;b.setAttribute('role','img');b.setAttribute('aria-label',b.title);$('chart').append(b);}
-  const articles=new Map();for(const r of result.rows){const key=r.sku.match(/^[A-Za-z]+\d+/)?.[0]??r.sku;articles.set(key,(articles.get(key)??0)+r.sold);}
-  $('articles').replaceChildren();for(const [key,q] of [...articles].filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,5)){const el=document.createElement('div');el.className='article';const n=document.createElement('span'),v=document.createElement('strong');n.textContent=key;v.textContent=`${fmt(q)} pasang`;el.append(n,v);$('articles').append(el);}
+  const articles=new Map();for(const r of result.rows){const key=r.sku.match(/^[A-Za-z]+\d+/)?.[0]??r.sku;const article=articles.get(key)??{qty:0,names:new Set()};article.qty+=r.sold;if(r.name.trim())article.names.add(r.name.trim());articles.set(key,article);}
+  $('articles').replaceChildren();for(const [key,article] of [...articles].filter(x=>x[1].qty>0).sort((a,b)=>b[1].qty-a[1].qty).slice(0,5)){const el=document.createElement('div');el.className='article';const n=document.createElement('span'),v=document.createElement('strong');n.textContent=[...article.names].join(' / ')||'Nama produk belum tersedia';n.title=key;v.textContent=`${fmt(article.qty)} pasang`;el.append(n,v);$('articles').append(el);}
   if(!$('articles').children.length)$('articles').textContent='Belum ada penjualan dalam periode ini.';table();
 }
 const definitions={
